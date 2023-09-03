@@ -5,29 +5,42 @@
 #include <numeric>
 #include <cmath>
 
-// Function to generate random numbers based on ECDF and samples
-double generateRandomNumber(const std::vector<double>& samples) {
-    // Create a random number generator
+double interpolate(double x0, double x1, double y0, double y1, double x) {
+    return y0 + (x - x0) * (y1 - y0) / (x1 - x0);
+}
+
+double generateRandomNumber(std::vector<double> sample) {
+   int n = sample.size();
+   std::sort(sample.begin(), sample.end());
+
+    std::vector<double> cumulativeProbs(n);
+    for (int i = 0; i < n; i++) {
+        cumulativeProbs[i] = static_cast<double>(i + 1) / n;
+    }
+
     std::random_device rd;
     std::mt19937 gen(rd());
+    std::uniform_real_distribution<double> dis(0.0, 1.0);
+    double randomValue = dis(gen);
 
-    // Create a uniform distribution [0, 1) for interpolation
-    std::uniform_real_distribution<> uniformDist(0.0, 1.0);
+    int index = 0;
+    while (index < n && cumulativeProbs[index] < randomValue) {
+        index++;
+    }
 
-    // Generate a random value between 0 and 1
-    double randomValue = uniformDist(gen);
-
-    // Find the interval in the ECDF where the random value falls
-    auto it = std::upper_bound(samples.begin(), samples.end(), randomValue);
-
-    // Calculate the interpolation weight
-    double weight = (randomValue - *(it - 1)) / (*it - *(it - 1));
-
-    // Perform linear interpolation between the two samples
-    double interpolatedValue = *(it - 1) + weight * (*it - *(it - 1));
-
-    // Return the interpolated value
-    return interpolatedValue;
+    if (index == 0) {
+        // If the random value falls before the first sample value, interpolate between the first two sample values
+        double generatedValue = interpolate(0, cumulativeProbs[0], sample[0], sample[1], randomValue);
+          return generatedValue;
+    } else if (index == n) {
+        // If the random value falls after the last sample value, interpolate between the last two sample values
+        double generatedValue = interpolate(cumulativeProbs[n - 2], cumulativeProbs[n - 1], sample[n - 2], sample[n - 1], randomValue);
+          return generatedValue;
+    } else {
+        // If the random value falls between two sample values, interpolate between them
+        double generatedValue = interpolate(cumulativeProbs[index - 1], cumulativeProbs[index], sample[index - 1], sample[index], randomValue);
+        return generatedValue;
+    }
 }
 
 void a(const std::vector<double>& ecdfSamples) {
@@ -55,7 +68,7 @@ void a(const std::vector<double>& ecdfSamples) {
 }
 int main() {
     // Define the ECDF samples
-    std::vector<double> ecdfSamples = {0.2, 0.4, 0.6, 0.8, 1.0};
+    std::vector<double> ecdfSamples = {1.2, 2.5, 3.7, 4.1, 5.9};
 
     // Generate 10 continuous random numbers based on the ECDF
     for (int i = 0; i < 10; ++i) {
